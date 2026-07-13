@@ -1,11 +1,11 @@
-# Patch Plan Automation
+# Network Patch Plan Automation
 
-Standalone tool that generates a CSV patch plan defining all physical cable connections between network devices at a site.
+Automates patch-plan generation from shared network topology and site YAML definitions.
 
 ## Folder Structure
 
 ```
-patch-plan-automation/
+network-patch-plan-automation/
 ├── generate_patch_plan.py        # Main script
 ├── config/
 │   ├── connectivity.yaml         # Connection templates, port mappings, cable specs
@@ -19,7 +19,7 @@ patch-plan-automation/
 ## Quick Start
 
 ```bash
-cd patch-plan-automation
+cd network-patch-plan-automation
 python3 generate_patch_plan.py inputs/nyc_input.yaml    # Medium site
 python3 generate_patch_plan.py inputs/bgl_input.yaml    # Small site
 ```

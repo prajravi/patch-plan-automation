@@ -4,13 +4,10 @@ nyc-wan-gw1,ten0/0/4,SFP-10Base-SR,nyc-core-sw1,hun1/0/49,CVR QSFP28 SFP25G,fibe
 ,gig0/0/0,RJ 45,nyc-wan-gw2,gig0/0/0,RJ 45,copper,Cat 6A
 ,ten0/1/2,SMF,nyc-ISP,tbd,SMF,fiber,OM4 MMF
 ,,,,,,,
-nyc-wan-gw2,ten0/0/4,SFP-10Base-SR,nyc-core-sw1,hun1/0/50,CVR QSFP28 SFP25G,fiber,OM4 MMF
-,ten0/0/5,SFP-10Base-SR,nyc-core-sw2,hun1/0/50,CVR QSFP28 SFP25G,fiber,OM4 MMF
-,gig0/0/0,RJ 45,nyc-wan-gw1,gig0/0/0,RJ 45,copper,Cat 6A
-,ten0/1/2,SMF,nyc-ISP,tbd,SMF,fiber,OM4 MMF
-,,,,,,,
 nyc-core-sw1,hun1/0/49,CVR QSFP28 SFP25G,nyc-wan-gw1,ten0/0/4,SFP-10Base-SR,fiber,OM4 MMF
 ,hun1/0/50,CVR QSFP28 SFP25G,nyc-wan-gw2,ten0/0/4,SFP-10Base-SR,fiber,OM4 MMF
+,twe1/0/3,SFP-10/25GBase-CSR,nyc-core-sw2,twe1/0/3,SFP-10/25GBase-CSR,fiber,OM4 MMF
+,twe1/0/4,SFP-10/25GBase-CSR,nyc-core-sw2,twe1/0/4,SFP-10/25GBase-CSR,fiber,OM4 MMF
 ,twe1/0/15,SFP-10Base-SR,nyc-console-server1,ten0/0/4,SFP-10Base-SR,fiber,OM4 MMF
 ,twe1/0/11,SFP-10Base-SR,nyc-lab-gw1,ten0/0/0,SFP-10Base-SR,fiber,OM4 MMF
 ,twe1/0/12,SFP-10Base-SR,nyc-lab-gw2,ten0/0/0,SFP-10Base-SR,fiber,OM4 MMF
@@ -19,11 +16,11 @@ nyc-core-sw1,hun1/0/49,CVR QSFP28 SFP25G,nyc-wan-gw1,ten0/0/4,SFP-10Base-SR,fibe
 ,twe1/0/21,SFP-10/25GBase-CSR,nyc-11-sw2,twe1/1/1,SFP-10/25GBase-CSR,fiber,OM4 MMF
 ,twe1/0/22,SFP-10/25GBase-CSR,nyc-21-sw1,twe1/1/1,SFP-10/25GBase-CSR,fiber,OM4 MMF
 ,twe1/0/23,SFP-10/25GBase-CSR,nyc-21-sw2,twe1/1/1,SFP-10/25GBase-CSR,fiber,OM4 MMF
-,twe1/0/3,SFP-10/25GBase-CSR,nyc-core-sw2,twe1/0/3,SFP-10/25GBase-CSR,fiber,OM4 MMF
-,twe1/0/4,SFP-10/25GBase-CSR,nyc-core-sw2,twe1/0/4,SFP-10/25GBase-CSR,fiber,OM4 MMF
 ,,,,,,,
 nyc-core-sw2,hun1/0/49,CVR QSFP28 SFP25G,nyc-wan-gw1,ten0/0/5,SFP-10Base-SR,fiber,OM4 MMF
 ,hun1/0/50,CVR QSFP28 SFP25G,nyc-wan-gw2,ten0/0/5,SFP-10Base-SR,fiber,OM4 MMF
+,twe1/0/3,SFP-10/25GBase-CSR,nyc-core-sw1,twe1/0/3,SFP-10/25GBase-CSR,fiber,OM4 MMF
+,twe1/0/4,SFP-10/25GBase-CSR,nyc-core-sw1,twe1/0/4,SFP-10/25GBase-CSR,fiber,OM4 MMF
 ,twe1/0/15,SFP-10Base-SR,nyc-console-server1,ten0/0/5,SFP-10Base-SR,fiber,OM4 MMF
 ,twe1/0/11,SFP-10Base-SR,nyc-lab-gw1,ten0/0/1,SFP-10Base-SR,fiber,OM4 MMF
 ,twe1/0/12,SFP-10Base-SR,nyc-lab-gw2,ten0/0/1,SFP-10Base-SR,fiber,OM4 MMF
@@ -32,8 +29,11 @@ nyc-core-sw2,hun1/0/49,CVR QSFP28 SFP25G,nyc-wan-gw1,ten0/0/5,SFP-10Base-SR,fibe
 ,twe1/0/21,SFP-10/25GBase-CSR,nyc-11-sw2,twe2/1/1,SFP-10/25GBase-CSR,fiber,OM4 MMF
 ,twe1/0/22,SFP-10/25GBase-CSR,nyc-21-sw1,twe2/1/1,SFP-10/25GBase-CSR,fiber,OM4 MMF
 ,twe1/0/23,SFP-10/25GBase-CSR,nyc-21-sw2,twe2/1/1,SFP-10/25GBase-CSR,fiber,OM4 MMF
-,twe1/0/3,SFP-10Base-SR,nyc-core-sw1,twe1/0/3,SFP-10Base-SR,fiber,OM4 MMF
-,twe1/0/4,SFP-10Base-SR,nyc-core-sw1,twe1/0/4,SFP-10Base-SR,fiber,OM4 MMF
+,,,,,,,
+nyc-wan-gw2,ten0/0/4,SFP-10Base-SR,nyc-core-sw1,hun1/0/50,CVR QSFP28 SFP25G,fiber,OM4 MMF
+,ten0/0/5,SFP-10Base-SR,nyc-core-sw2,hun1/0/50,CVR QSFP28 SFP25G,fiber,OM4 MMF
+,gig0/0/0,RJ 45,nyc-wan-gw1,gig0/0/0,RJ 45,copper,Cat 6A
+,ten0/1/2,SMF,nyc-ISP,tbd,SMF,fiber,OM4 MMF
 ,,,,,,,
 nyc-console-server1,ten0/0/4,SFP-10Base-SR,nyc-core-sw1,twe1/0/15,SFP-10Base-SR,fiber,OM4 MMF
 ,ten0/0/5,SFP-10Base-SR,nyc-core-sw2,twe1/0/15,SFP-10Base-SR,fiber,OM4 MMF

@@ -1,12 +1,12 @@
 From,Interface,Media Type,To,Interface,Media Type,Notes,Cable
-bgl-wan-gw1,gig0/0/3,GLC-SX-MMD,bgl-console-server1,gig0/0/0,GLC-SX-MMD,fiber,OM4 MMF
-,ten0/0/4,SFP-10Base-SR,bgl-1-sw1,twe1/1/1,SFP-10Base-SR,fiber,OM4 MMF
+bgl-wan-gw1,ten0/0/4,SFP-10Base-SR,bgl-1-sw1,twe1/1/1,SFP-10Base-SR,fiber,OM4 MMF
+,gig0/0/3,GLC-SX-MMD,bgl-console-server1,gig0/0/0,GLC-SX-MMD,fiber,OM4 MMF
 ,gig0/1/0,RJ 45,bgl-ISP,tbd,RJ 45,copper,Cat 6A
-,,,,,,,
-bgl-console-server1,gig0/0/0,GLC-SX-MMD,bgl-wan-gw1,gig0/0/3,GLC-SX-MMD,fiber,OM4 MMF
 ,,,,,,,
 bgl-1-sw1,twe1/1/1,SFP-10Base-SR,bgl-wan-gw1,ten0/0/4,SFP-10Base-SR,fiber,OM4 MMF
 ,twe1/1/3,SFP-10Base-SR,bgl-lab-gw1,ten0/0/4,SFP-10Base-SR,fiber,OM4 MMF
+,,,,,,,
+bgl-console-server1,gig0/0/0,GLC-SX-MMD,bgl-wan-gw1,gig0/0/3,GLC-SX-MMD,fiber,OM4 MMF
 ,,,,,,,
 bgl-lab-gw1,ten0/0/4,SFP-10Base-SR,bgl-1-sw1,twe1/1/3,SFP-10Base-SR,fiber,OM4 MMF
 ,,,,,,,

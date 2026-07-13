@@ -36,6 +36,20 @@ def floor_sw_name(site, floor, stack_id):
     return f"{site}-{floor}-sw{stack_id}"
 
 
+def device_name(site, role, dev_id):
+    """Generate a site-prefixed device name from a connectivity role and ID."""
+    if role == "ISP":
+        return f"{site}-ISP"
+    role_map = {
+        "wan_gw": "wan-gw",
+        "core_sw": "core-sw",
+        "console_server": "console-server",
+        "lab_gw": "lab-gw",
+        "voice_gw": "voice-gw",
+    }
+    return f"{site}-{role_map[role]}{dev_id}"
+
+
 class PatchPlan:
     def __init__(self, input_cfg):
         self.cfg = input_cfg
@@ -63,178 +77,105 @@ class PatchPlan:
         self.rows.append(["", "", "", "", "", "", "", ""])
         self.current_device = None
 
-    def _device_separator(self):
-        """Add a blank row to visually separate device groups."""
-        self._blank()
-
     def generate(self):
-        """Generate the complete patch plan."""
+        """Generate the complete patch plan from connectivity.yaml."""
         self._header()
-
-        if self.site_type == "small":
-            self._generate_small()
-        else:
-            self._generate_medium()
-
+        connections = self._connections_for_site()
+        for device in self._device_order(connections):
+            for connection in connections:
+                if connection["from_device"] == device:
+                    self._entry(
+                        device, connection["from_port"], connection["from_media"],
+                        connection["to_device"], connection["to_port"], connection["to_media"],
+                        connection["cable_type"], connection["cable"],
+                    )
+                elif connection["to_device"] == device:
+                    self._entry(
+                        device, connection["to_port"], connection["to_media"],
+                        connection["from_device"], connection["from_port"], connection["from_media"],
+                        connection["cable_type"], connection["cable"],
+                    )
+            self._blank()
         return self.rows
 
-    def _generate_small(self):
-        """Generate patch plan for small site type."""
-        site = self.site
-        lab = self.services.get("lab", False)
+    def _connections_for_site(self):
+        """Expand static and floor-stack links from connectivity.yaml."""
+        topology = self.conn_cfg[self.site_type]
+        connections = []
+        for connection in topology["connections"]:
+            if not self._connection_enabled(connection):
+                continue
+            contexts = self._floor_contexts() if "floor_sw" in (
+                connection["from_role"], connection["to_role"]
+            ) else [{}]
+            for context in contexts:
+                connections.append(self._materialize_connection(connection, context))
+        connections.extend(self._switch_uplink_connections(topology))
+        return connections
 
-        sdwan = f"{site}-wan-gw1"
-        console = f"{site}-console-server1"
+    def _connection_enabled(self, connection):
+        condition = connection.get("condition")
+        if not condition:
+            return True
+        service = condition[:-8] if condition.endswith("_enabled") else condition
+        return self.services.get(service, False)
 
-        # WAN gateway connections
-        self._entry(sdwan, "gig0/0/3", "GLC-SX-MMD", console, "gig0/0/0", "GLC-SX-MMD", "fiber", "OM4 MMF")
+    def _floor_contexts(self):
+        return [
+            {"floor": floor_info["floor"], "stack_id": stack["stack_id"]}
+            for floor_info in self.cfg["floors"]
+            for stack in floor_info.get("switch_stacks", [{"stack_id": 1}])
+        ]
 
-        for floor_info in self.cfg["floors"]:
-            floor = floor_info["floor"]
-            for stack in floor_info.get("switch_stacks", [{"stack_id": 1}]):
-                sw = floor_sw_name(site, floor, stack["stack_id"])
-                self._entry(sdwan, "ten0/0/4", "SFP-10Base-SR", sw, "twe1/1/1", "SFP-10Base-SR", "fiber", "OM4 MMF")
+    def _device_for(self, role, dev_id, context):
+        if role == "floor_sw":
+            return floor_sw_name(self.site, context["floor"], context["stack_id"])
+        return device_name(self.site, role, dev_id)
 
-        self._entry(sdwan, "gig0/1/0", "RJ 45", f"{site}-ISP", "tbd", "RJ 45", "copper", "Cat 6A")
-        self._device_separator()
+    def _materialize_connection(self, connection, context):
+        return {
+            "from_device": self._device_for(connection["from_role"], connection["from_id"], context),
+            "from_port": connection["from_port"],
+            "from_media": connection["from_media"],
+            "to_device": self._device_for(connection["to_role"], connection["to_id"], context),
+            "to_port": connection["to_port"],
+            "to_media": connection["to_media"],
+            "cable_type": connection["cable_type"],
+            "cable": connection["cable"],
+        }
 
-        # Console server connections
-        self._entry(console, "gig0/0/0", "GLC-SX-MMD", sdwan, "gig0/0/3", "GLC-SX-MMD", "fiber", "OM4 MMF")
-        self._device_separator()
+    def _switch_uplink_connections(self, topology):
+        """Create the dynamic core-to-floor links defined by switch_uplinks."""
+        uplinks = topology.get("switch_uplinks")
+        if not uplinks:
+            return []
+        connections = []
+        for offset, context in enumerate(self._floor_contexts()):
+            core_port = f"twe1/0/{uplinks['core_base_port'] + offset}"
+            floor_switch = self._device_for("floor_sw", 1, context)
+            for core_id, floor_port in ((1, uplinks["sw_member1_port"]), (2, uplinks["sw_member2_port"])):
+                connections.append({
+                    "from_device": self._device_for("core_sw", core_id, {}),
+                    "from_port": core_port,
+                    "from_media": uplinks["media"],
+                    "to_device": floor_switch,
+                    "to_port": floor_port,
+                    "to_media": uplinks["media"],
+                    "cable_type": uplinks["cable_type"],
+                    "cable": uplinks["cable"],
+                })
+        return connections
 
-        # Floor switches
-        for floor_info in self.cfg["floors"]:
-            floor = floor_info["floor"]
-            for stack in floor_info.get("switch_stacks", [{"stack_id": 1}]):
-                sw = floor_sw_name(site, floor, stack["stack_id"])
-                self._entry(sw, "twe1/1/1", "SFP-10Base-SR", sdwan, "ten0/0/4", "SFP-10Base-SR", "fiber", "OM4 MMF")
-                if lab:
-                    self._entry(sw, "twe1/1/3", "SFP-10Base-SR", f"{site}-lab-gw1", "ten0/0/4", "SFP-10Base-SR", "fiber", "OM4 MMF")
-                self._device_separator()
-
-        # Lab gateway
-        if lab:
-            lab_gw = f"{site}-lab-gw1"
-            for floor_info in self.cfg["floors"]:
-                floor = floor_info["floor"]
-                for stack in floor_info.get("switch_stacks", [{"stack_id": 1}]):
-                    sw = floor_sw_name(site, floor, stack["stack_id"])
-                    self._entry(lab_gw, "ten0/0/4", "SFP-10Base-SR", sw, "twe1/1/3", "SFP-10Base-SR", "fiber", "OM4 MMF")
-            self._device_separator()
-
-    def _generate_medium(self):
-        """Generate patch plan for medium site type."""
-        site = self.site
-        lab = self.services.get("lab", False)
-        voice = self.services.get("voice", False)
-
-        sdwan1 = f"{site}-wan-gw1"
-        sdwan2 = f"{site}-wan-gw2"
-        core1 = f"{site}-core-sw1"
-        core2 = f"{site}-core-sw2"
-        console = f"{site}-console-server1"
-
-        # --- WAN-GW1 ---
-        self._entry(sdwan1, "ten0/0/4", "SFP-10Base-SR", core1, "hun1/0/49", "CVR QSFP28 SFP25G", "fiber", "OM4 MMF")
-        self._entry(sdwan1, "ten0/0/5", "SFP-10Base-SR", core2, "hun1/0/49", "CVR QSFP28 SFP25G", "fiber", "OM4 MMF")
-        self._entry(sdwan1, "gig0/0/0", "RJ 45", sdwan2, "gig0/0/0", "RJ 45", "copper", "Cat 6A")
-        self._entry(sdwan1, "ten0/1/2", "SMF", f"{site}-ISP", "tbd", "SMF", "fiber", "OM4 MMF")
-        self._device_separator()
-
-        # --- WAN-GW2 ---
-        self._entry(sdwan2, "ten0/0/4", "SFP-10Base-SR", core1, "hun1/0/50", "CVR QSFP28 SFP25G", "fiber", "OM4 MMF")
-        self._entry(sdwan2, "ten0/0/5", "SFP-10Base-SR", core2, "hun1/0/50", "CVR QSFP28 SFP25G", "fiber", "OM4 MMF")
-        self._entry(sdwan2, "gig0/0/0", "RJ 45", sdwan1, "gig0/0/0", "RJ 45", "copper", "Cat 6A")
-        self._entry(sdwan2, "ten0/1/2", "SMF", f"{site}-ISP", "tbd", "SMF", "fiber", "OM4 MMF")
-        self._device_separator()
-
-        # --- Core-SW1 ---
-        self._entry(core1, "hun1/0/49", "CVR QSFP28 SFP25G", sdwan1, "ten0/0/4", "SFP-10Base-SR", "fiber", "OM4 MMF")
-        self._entry(core1, "hun1/0/50", "CVR QSFP28 SFP25G", sdwan2, "ten0/0/4", "SFP-10Base-SR", "fiber", "OM4 MMF")
-        self._entry(core1, "twe1/0/15", "SFP-10Base-SR", console, "ten0/0/4", "SFP-10Base-SR", "fiber", "OM4 MMF")
-
-        if lab:
-            self._entry(core1, "twe1/0/11", "SFP-10Base-SR", f"{site}-lab-gw1", "ten0/0/0", "SFP-10Base-SR", "fiber", "OM4 MMF")
-            self._entry(core1, "twe1/0/12", "SFP-10Base-SR", f"{site}-lab-gw2", "ten0/0/0", "SFP-10Base-SR", "fiber", "OM4 MMF")
-
-        if voice:
-            self._entry(core1, "twe1/0/13", "SFP-10Base-SR", f"{site}-voice-gw1", "ten0/0/4", "SFP-10Base-SR", "fiber", "OM4 MMF")
-
-        # Floor switch uplinks from core1
-        core_port = 20
-        for floor_info in self.cfg["floors"]:
-            floor = floor_info["floor"]
-            for stack in floor_info.get("switch_stacks", [{"stack_id": 1}]):
-                sw = floor_sw_name(site, floor, stack["stack_id"])
-                self._entry(core1, f"twe1/0/{core_port}", "SFP-10/25GBase-CSR", sw, "twe1/1/1", "SFP-10/25GBase-CSR", "fiber", "OM4 MMF")
-                core_port += 1
-
-        # Core cross-links
-        self._entry(core1, "twe1/0/3", "SFP-10/25GBase-CSR", core2, "twe1/0/3", "SFP-10/25GBase-CSR", "fiber", "OM4 MMF")
-        self._entry(core1, "twe1/0/4", "SFP-10/25GBase-CSR", core2, "twe1/0/4", "SFP-10/25GBase-CSR", "fiber", "OM4 MMF")
-        self._device_separator()
-
-        # --- Core-SW2 ---
-        self._entry(core2, "hun1/0/49", "CVR QSFP28 SFP25G", sdwan1, "ten0/0/5", "SFP-10Base-SR", "fiber", "OM4 MMF")
-        self._entry(core2, "hun1/0/50", "CVR QSFP28 SFP25G", sdwan2, "ten0/0/5", "SFP-10Base-SR", "fiber", "OM4 MMF")
-        self._entry(core2, "twe1/0/15", "SFP-10Base-SR", console, "ten0/0/5", "SFP-10Base-SR", "fiber", "OM4 MMF")
-
-        if lab:
-            self._entry(core2, "twe1/0/11", "SFP-10Base-SR", f"{site}-lab-gw1", "ten0/0/1", "SFP-10Base-SR", "fiber", "OM4 MMF")
-            self._entry(core2, "twe1/0/12", "SFP-10Base-SR", f"{site}-lab-gw2", "ten0/0/1", "SFP-10Base-SR", "fiber", "OM4 MMF")
-
-        if voice:
-            self._entry(core2, "twe1/0/13", "SFP-10Base-SR", f"{site}-voice-gw1", "ten0/0/5", "SFP-10Base-SR", "fiber", "OM4 MMF")
-
-        # Floor switch uplinks from core2
-        core_port = 20
-        for floor_info in self.cfg["floors"]:
-            floor = floor_info["floor"]
-            for stack in floor_info.get("switch_stacks", [{"stack_id": 1}]):
-                sw = floor_sw_name(site, floor, stack["stack_id"])
-                self._entry(core2, f"twe1/0/{core_port}", "SFP-10/25GBase-CSR", sw, "twe2/1/1", "SFP-10/25GBase-CSR", "fiber", "OM4 MMF")
-                core_port += 1
-
-        self._entry(core2, "twe1/0/3", "SFP-10Base-SR", core1, "twe1/0/3", "SFP-10Base-SR", "fiber", "OM4 MMF")
-        self._entry(core2, "twe1/0/4", "SFP-10Base-SR", core1, "twe1/0/4", "SFP-10Base-SR", "fiber", "OM4 MMF")
-        self._device_separator()
-
-        # --- Console Server ---
-        self._entry(console, "ten0/0/4", "SFP-10Base-SR", core1, "twe1/0/15", "SFP-10Base-SR", "fiber", "OM4 MMF")
-        self._entry(console, "ten0/0/5", "SFP-10Base-SR", core2, "twe1/0/15", "SFP-10Base-SR", "fiber", "OM4 MMF")
-        self._device_separator()
-
-        # --- Lab Gateways ---
-        if lab:
-            lab1 = f"{site}-lab-gw1"
-            lab2 = f"{site}-lab-gw2"
-            self._entry(lab1, "ten0/0/0", "SFP-10Base-SR", core1, "twe1/0/11", "SFP-10Base-SR", "fiber", "OM4 MMF")
-            self._entry(lab1, "ten0/0/1", "SFP-10Base-SR", core2, "twe1/0/11", "SFP-10Base-SR", "fiber", "OM4 MMF")
-            self._entry(lab1, "ten0/0/2", "SFP-10Base-SR", lab2, "ten0/0/2", "SFP-10Base-SR", "fiber", "OM4 MMF")
-            self._device_separator()
-
-            self._entry(lab2, "ten0/0/0", "SFP-10Base-SR", core1, "twe1/0/12", "SFP-10Base-SR", "fiber", "OM4 MMF")
-            self._entry(lab2, "ten0/0/1", "SFP-10Base-SR", core2, "twe1/0/12", "SFP-10Base-SR", "fiber", "OM4 MMF")
-            self._entry(lab2, "ten0/0/2", "SFP-10Base-SR", lab1, "ten0/0/2", "SFP-10Base-SR", "fiber", "OM4 MMF")
-            self._device_separator()
-
-        # --- Voice Gateway ---
-        if voice:
-            voice_gw = f"{site}-voice-gw1"
-            self._entry(voice_gw, "ten0/0/4", "SFP-10Base-SR", core1, "twe1/0/13", "SFP-10Base-SR", "fiber", "OM4 MMF")
-            self._entry(voice_gw, "ten0/0/5", "SFP-10Base-SR", core2, "twe1/0/13", "SFP-10Base-SR", "fiber", "OM4 MMF")
-            self._device_separator()
-
-        # --- Floor Switches ---
-        core_port = 20
-        for floor_info in self.cfg["floors"]:
-            floor = floor_info["floor"]
-            for stack in floor_info.get("switch_stacks", [{"stack_id": 1}]):
-                sw = floor_sw_name(site, floor, stack["stack_id"])
-                self._entry(sw, "twe1/1/1", "SFP-10/25GBase-CSR", core1, f"twe1/0/{core_port}", "SFP-10/25GBase-CSR", "fiber", "OM4 MMF")
-                self._entry(sw, "twe2/1/1", "SFP-10/25GBase-CSR", core2, f"twe1/0/{core_port}", "SFP-10/25GBase-CSR", "fiber", "OM4 MMF")
-                core_port += 1
-                self._device_separator()
+    @staticmethod
+    def _device_order(connections):
+        """Return non-ISP devices in first-seen order for grouped output."""
+        devices = []
+        for connection in connections:
+            for device in (connection["from_device"], connection["to_device"]):
+                if device.endswith("-ISP") or device in devices:
+                    continue
+                devices.append(device)
+        return devices
 
 
 def main():
@@ -258,7 +199,7 @@ def main():
     output_path = os.path.join(output_dir, f"{site}-patch-plan.csv")
 
     with open(output_path, "w", newline="") as f:
-        writer = csv.writer(f)
+        writer = csv.writer(f, lineterminator="\n")
         writer.writerows(rows)
 
     print(f"Patch plan generated: {output_path}")
